@@ -5,8 +5,9 @@ import streamlit as st
 import plotly.express as px
 
 import db
-from engine import evaluate_trace, run_mock_agent, run_http_agent, run_anthropic_agent
+from engine import evaluate_trace, run_mock_agent, run_http_agent, run_llm_agent
 from evaluators.cost_latency import estimate_cost, PRICING_PER_1K
+from llm_client import LLMClient, GROQ_MODELS, ANTHROPIC_MODELS
 
 st.set_page_config(page_title="AI Agent Evaluation & Reliability Platform", layout="wide")
 db.init_db()
@@ -14,21 +15,26 @@ db.init_db()
 # ---------------- Sidebar: judge / agent config ----------------
 st.sidebar.title("⚙️ Configuration")
 
-anthropic_key = st.sidebar.text_input("Anthropic API key (optional)", type="password",
-                                       help="Enables LLM-judge scoring and the built-in Anthropic agent runner. "
-                                            "Without it, the platform uses fast rule-based evaluators.")
-judge_model = st.sidebar.selectbox("Model for LLM judge / agent runner",
-                                    list(PRICING_PER_1K.keys()), index=0)
+provider = st.sidebar.selectbox("LLM provider", ["Groq", "Anthropic"], index=0,
+                                 help="Used for LLM-as-judge scoring and the built-in agent runner. "
+                                      "Without a key, the platform still works via rule-based evaluators + mock agent.")
+provider_key = "groq" if provider == "Groq" else "anthropic"
+default_key = st.secrets.get("GROQ_API_KEY", "") if provider_key == "groq" else st.secrets.get("ANTHROPIC_API_KEY", "")
+
+api_key = st.sidebar.text_input(f"{provider} API key", value=default_key, type="password",
+                                 help="Pre-filled automatically if set in Streamlit Secrets "
+                                      "(GROQ_API_KEY / ANTHROPIC_API_KEY).")
+model_options = GROQ_MODELS if provider_key == "groq" else ANTHROPIC_MODELS
+judge_model = st.sidebar.selectbox("Model for LLM judge / agent runner", model_options, index=0)
 use_llm_judge = st.sidebar.checkbox("Use LLM-as-judge for correctness & faithfulness", value=False,
-                                     disabled=not bool(anthropic_key))
+                                     disabled=not bool(api_key))
 
 judge_client = None
-if anthropic_key:
+if api_key:
     try:
-        import anthropic
-        judge_client = anthropic.Anthropic(api_key=anthropic_key)
+        judge_client = LLMClient(provider=provider_key, api_key=api_key, model=judge_model)
     except Exception as e:
-        st.sidebar.error(f"Could not init Anthropic client: {e}")
+        st.sidebar.error(f"Could not init {provider} client: {e}")
 
 st.sidebar.markdown("---")
 st.sidebar.caption("All data is stored locally in SQLite (`data/eval_platform.db`). "
@@ -130,12 +136,13 @@ with tabs[2]:
         dataset = st.selectbox("Dataset", datasets, format_func=lambda d: d["name"], key="run_ds")
         agent_mode = st.radio(
             "Agent under test",
-            ["Mock agent (demo, no API needed)", "HTTP endpoint (bring your own agent)", "Anthropic model (built-in minimal agent)"],
+            ["Mock agent (demo, no API needed)", "HTTP endpoint (bring your own agent)",
+             f"{provider} model (built-in minimal agent)"],
             horizontal=False,
         )
 
         agent_name = st.text_input("Agent / config name for this run", value="agent-v1")
-        model_name_field = st.text_input("Model name (for cost tracking, e.g. claude-sonnet-5)", value=judge_model)
+        model_name_field = st.text_input("Model name (for cost tracking)", value=judge_model)
         notes = st.text_area("Notes (optional)", placeholder="e.g. testing new system prompt with tighter tool-use instructions")
 
         endpoint_url, headers_raw = None, ""
@@ -153,8 +160,8 @@ with tabs[2]:
             else:
                 if agent_mode.startswith("HTTP") and not endpoint_url:
                     st.error("Please provide an agent endpoint URL.")
-                elif agent_mode.startswith("Anthropic") and not judge_client:
-                    st.error("Please provide an Anthropic API key in the sidebar to use this mode.")
+                elif agent_mode.startswith(provider) and not judge_client:
+                    st.error(f"Please provide a {provider} API key in the sidebar to use this mode.")
                 else:
                     run_id = db.create_run(dataset["id"], agent_name, model_name_field, notes)
                     progress = st.progress(0.0, text="Running...")
@@ -172,7 +179,7 @@ with tabs[2]:
                             elif agent_mode.startswith("HTTP"):
                                 trace = run_http_agent(item, endpoint_url, headers)
                             else:
-                                trace = run_anthropic_agent(item, judge_client, judge_model)
+                                trace = run_llm_agent(item, judge_client)
                         except Exception as e:
                             trace = {"answer": f"[ERROR calling agent: {e}]", "retrieved_doc_ids": [],
                                       "tool_calls": [], "latency_ms": 0, "prompt_tokens": 0,
@@ -185,7 +192,7 @@ with tabs[2]:
                             trace["prompt_tokens"], trace["completion_tokens"], cost, trace.get("raw_trace"),
                         )
                         evald = evaluate_trace(item, trace, use_llm_judge=use_llm_judge,
-                                                judge_client=judge_client, judge_model=judge_model)
+                                                judge_client=judge_client)
                         db.add_evaluation(
                             trace_id, run_id, evald["correctness"], evald["faithfulness"],
                             evald["rag_precision"], evald["rag_recall"], evald["tool_call_accuracy"],

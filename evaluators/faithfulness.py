@@ -41,7 +41,8 @@ def rule_based_faithfulness(answer: str, context: list) -> dict:
     }
 
 
-def llm_judge_faithfulness(client, model, answer, context) -> dict:
+def llm_judge_faithfulness(llm_client, answer, context) -> dict:
+    """llm_client is an llm_client.LLMClient instance (provider-agnostic: Anthropic or Groq)."""
     if not context:
         return {"score": None, "method": "llm_judge", "reason": "No context supplied; faithfulness not applicable."}
     try:
@@ -57,8 +58,7 @@ ANSWER:
 
 Score faithfulness 0.0 (heavy hallucination) to 1.0 (fully grounded).
 Respond ONLY with JSON: {{"score": <float>, "reason": "<short reason>"}}"""
-        resp = client.messages.create(model=model, max_tokens=200, messages=[{"role": "user", "content": prompt}])
-        text = "".join(b.text for b in resp.content if hasattr(b, "text"))
+        text, _usage = llm_client.complete(prompt, max_tokens=200)
         import json as _json
         text = text.strip().strip("`").replace("json", "", 1) if text.strip().startswith("```") else text
         data = _json.loads(text)

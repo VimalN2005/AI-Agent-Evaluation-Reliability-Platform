@@ -14,13 +14,14 @@ from evaluators.tool_calls import tool_call_accuracy
 from evaluators.cost_latency import estimate_cost, rule_based_safety
 
 
-def evaluate_trace(item, trace, use_llm_judge=False, judge_client=None, judge_model=None):
-    """item: dataset item dict. trace: dict with answer, retrieved_doc_ids, tool_calls."""
+def evaluate_trace(item, trace, use_llm_judge=False, judge_client=None):
+    """item: dataset item dict. trace: dict with answer, retrieved_doc_ids, tool_calls.
+    judge_client: an llm_client.LLMClient instance (provider-agnostic)."""
     details = {}
 
     if use_llm_judge and judge_client is not None:
-        corr = llm_judge_correctness(judge_client, judge_model, item["question"], trace["answer"], item["expected_answer"])
-        faith = llm_judge_faithfulness(judge_client, judge_model, trace["answer"], item["context"])
+        corr = llm_judge_correctness(judge_client, item["question"], trace["answer"], item["expected_answer"])
+        faith = llm_judge_faithfulness(judge_client, trace["answer"], item["context"])
     else:
         corr = rule_based_correctness(trace["answer"], item["expected_answer"])
         faith = rule_based_faithfulness(trace["answer"], item["context"])
@@ -131,24 +132,21 @@ def run_http_agent(item, endpoint_url, headers=None, timeout=30):
     }
 
 
-def run_anthropic_agent(item, client, model):
-    """A minimal single-turn Anthropic-backed agent (no tools/RAG execution —
-    just answers from provided context) for quick real-model comparisons."""
+def run_llm_agent(item, llm_client):
+    """A minimal single-turn LLM-backed agent (no tools/RAG execution — just
+    answers from provided context) for quick real-model comparisons.
+    llm_client: an llm_client.LLMClient instance (works with Anthropic or Groq)."""
     start = time.time()
     ctx = "\n".join(item["context"])
     prompt = f"Context:\n{ctx}\n\nQuestion: {item['question']}\n\nAnswer concisely using only the context above."
-    resp = client.messages.create(model=model, max_tokens=400, messages=[{"role": "user", "content": prompt}])
+    answer, usage = llm_client.complete(prompt, max_tokens=400)
     latency_ms = round((time.time() - start) * 1000, 1)
-    answer = "".join(b.text for b in resp.content if hasattr(b, "text"))
-    usage = getattr(resp, "usage", None)
-    prompt_tokens = getattr(usage, "input_tokens", 0) if usage else 0
-    completion_tokens = getattr(usage, "output_tokens", 0) if usage else 0
     return {
         "answer": answer,
         "retrieved_doc_ids": item["relevant_doc_ids"],  # assumed perfect retrieval in this minimal harness
         "tool_calls": [],
         "latency_ms": latency_ms,
-        "prompt_tokens": prompt_tokens,
-        "completion_tokens": completion_tokens,
-        "raw_trace": {"mode": "anthropic", "model": model},
+        "prompt_tokens": usage["prompt_tokens"],
+        "completion_tokens": usage["completion_tokens"],
+        "raw_trace": {"mode": llm_client.provider, "model": llm_client.model},
     }
