@@ -1,0 +1,86 @@
+{
+  "name": "Support Agent Benchmark v1",
+  "items": [
+    {
+      "question": "What is the refund window for annual subscriptions?",
+      "expected_answer": "Annual subscriptions can be refunded within 30 days of purchase.",
+      "context": [
+        "Our refund policy states that annual subscription plans are eligible for a full refund if requested within 30 days of purchase.",
+        "Monthly subscriptions are non-refundable but can be cancelled anytime."
+      ],
+      "relevant_doc_ids": ["policy_refunds_v2"],
+      "expected_tool_calls": ["lookup_policy"],
+      "tags": ["billing", "policy"]
+    },
+    {
+      "question": "How do I reset my password?",
+      "expected_answer": "Go to the login page, click 'Forgot password', and follow the emailed reset link.",
+      "context": [
+        "To reset your password, navigate to the login page and select 'Forgot password'. A reset link will be emailed to you and expires in 24 hours."
+      ],
+      "relevant_doc_ids": ["help_password_reset"],
+      "expected_tool_calls": ["search_help_center"],
+      "tags": ["account"]
+    },
+    {
+      "question": "What's the current status of order #48213?",
+      "expected_answer": "Order #48213 is out for delivery and expected today.",
+      "context": [
+        "Order tracking system: order #48213 status = OUT_FOR_DELIVERY, ETA today by 8pm."
+      ],
+      "relevant_doc_ids": ["order_tracking_48213"],
+      "expected_tool_calls": ["check_order_status"],
+      "tags": ["orders"]
+    },
+    {
+      "question": "Can I use the API to bulk export my data?",
+      "expected_answer": "Yes, the /export endpoint supports bulk CSV or JSON export of account data.",
+      "context": [
+        "The REST API exposes a POST /export endpoint that accepts a format parameter (csv or json) and returns a signed download URL for bulk account data export."
+      ],
+      "relevant_doc_ids": ["api_docs_export"],
+      "expected_tool_calls": ["search_api_docs"],
+      "tags": ["api", "docs"]
+    },
+    {
+      "question": "Do you offer discounts for students?",
+      "expected_answer": "Yes, students get 50% off with a verified .edu email through our education program.",
+      "context": [
+        "Education discount program: verified students with a .edu email address receive 50% off any paid plan."
+      ],
+      "relevant_doc_ids": ["policy_student_discount"],
+      "expected_tool_calls": ["lookup_policy"],
+      "tags": ["billing", "discounts"]
+    },
+    {
+      "question": "What programming languages does your SDK support?",
+      "expected_answer": "The SDK officially supports Python, JavaScript/TypeScript, and Go.",
+      "context": [
+        "Our official SDKs are published for Python, JavaScript/TypeScript, and Go. Community-maintained SDKs also exist for Ruby and Java."
+      ],
+      "relevant_doc_ids": ["sdk_docs_overview"],
+      "expected_tool_calls": ["search_api_docs"],
+      "tags": ["api", "docs"]
+    },
+    {
+      "question": "How long does customer support usually take to respond?",
+      "expected_answer": "Standard support responds within 24 hours; priority support responds within 4 hours.",
+      "context": [
+        "Support SLA: standard tier response time is 24 hours. Priority (paid) tier response time is 4 hours."
+      ],
+      "relevant_doc_ids": ["policy_support_sla"],
+      "expected_tool_calls": ["lookup_policy"],
+      "tags": ["support"]
+    },
+    {
+      "question": "Is there a free trial available?",
+      "expected_answer": "Yes, there's a 14-day free trial with full feature access, no credit card required.",
+      "context": [
+        "New accounts get a 14-day free trial with access to all Pro features. No credit card is required to start the trial."
+      ],
+      "relevant_doc_ids": ["policy_free_trial"],
+      "expected_tool_calls": ["lookup_policy"],
+      "tags": ["billing"]
+    }
+  ]
+}
