@@ -26,20 +26,24 @@
 
 ## 🏗️ System Architecture
 
+<p align="center">
+  <img src="assets/architecture.svg" alt="AI Agent Evaluation & Reliability Platform Architecture" width="100%" />
+</p>
+
 ```mermaid
 flowchart TD
-    A[User / Client Request] --> B[AI Agent Under Test]
-    B --> C[SDK / Trace Collector\nsdk/client.py]
-    C --> D[(SQLite Trace DB\ndb.py)]
-    D --> E[Evaluation Engine\nengine.py]
-    E --> F1[Correctness Evaluator]
-    E --> F2[Faithfulness Evaluator]
-    E --> F3[RAG Precision & Recall]
-    E --> F4[Tool-Call Accuracy]
-    E --> F5[Cost & Latency Analyzer]
-    F1 & F2 & F3 & F4 & F5 --> G[(Evaluations DB)]
-    G --> H[Streamlit Analytics Dashboard\napp.py]
-    H --> I[Compare Runs & Regression Reports]
+    A[1. User / Client Request] --> B[2. AI Agent Under Test]
+    B --> C[3. SDK / Trace Collector<br/><code>sdk/client.py</code>]
+    C --> D[(4. SQLite Trace Database<br/><code>db.py</code>)]
+    D --> E[5. <b>Evaluation Engine</b><br/><code>engine.py</code>]
+    E --> F1[Correctness Evaluator<br/><i>answer / logic matching</i>]
+    E --> F2[Faithfulness Evaluator<br/><i>groundedness / hallucination</i>]
+    E --> F3[RAG Precision & Recall<br/><i>retrieval quality</i>]
+    E --> F4[Tool-Call Accuracy<br/><i>function calling correctness</i>]
+    E --> F5[Cost & Latency Analyzer<br/><i>performance / efficiency</i>]
+    F1 & F2 & F3 & F4 & F5 --> G[(6. Evaluations Database<br/><i>store evaluation results</i>)]
+    G --> H[7. Streamlit Analytics Dashboard<br/><code>app.py</code>]
+    H --> I[8. Compare Runs & Regression<br/><i>track performance changes</i>]
 ```
 
 ---
